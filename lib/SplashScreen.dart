@@ -24,8 +24,8 @@ class _SplashState extends State<Splash> {
 
   _navigatePage() async {
     SharedPreferences preferences = await SharedPreferences.getInstance();
-    preferences.setString('clinic_id', "");
-    preferences.setString('doctorName', "");
+    // preferences.setString('clinic_id', "");
+    // preferences.setString('doctorName', "");
     String? storedTvToken = preferences.getString('tvToken');
     int storedTimestamp = preferences.getInt('tvTokenTimestamp') ?? 0;
     DateTime storedDateTime = DateTime.fromMillisecondsSinceEpoch(storedTimestamp);
