@@ -16,33 +16,31 @@ class _SplashState extends State<Splash> {
     _navigatePage();
     super.initState();
   }
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _navigatePage();
-  }
-
 
   _navigatePage() async {
     SharedPreferences preferences = await SharedPreferences.getInstance();
     // preferences.setString('clinic_id', "");
     // preferences.setString('doctorName', "");
+    // preferences.setString('userList', "");
     String? storedTvToken = preferences.getString('tvToken');
     int storedTimestamp = preferences.getInt('tvTokenTimestamp') ?? 0;
     DateTime storedDateTime = DateTime.fromMillisecondsSinceEpoch(storedTimestamp);
     DateTime currentDateTime = DateTime.now();
-    String? storedClinicId = preferences.getString('clinic_id');
-    String? storedDoctorName = preferences.getString('doctorName');
+    // String? storedClinicId = preferences.getString('clinic_id');
+    // String? storedDoctorName = preferences.getString('doctorName');
+    List<String>? storedList = preferences.getStringList('userList'); // Retrieve the list
+    print(storedList);
     print(storedDateTime);
     print(currentDateTime);
     print(storedTvToken);
-    print(storedClinicId);
-    print(storedDoctorName);
+    // print(storedClinicId);
+    // print(storedDoctorName);
 
     // Delay for 1500 milliseconds
 
     if (storedTvToken != null && storedTvToken.isNotEmpty && storedDateTime.year == currentDateTime.year &&
         storedDateTime.month == currentDateTime.month &&
-        storedDateTime.day == currentDateTime.day && storedClinicId != null && storedClinicId.isNotEmpty) {
+        storedDateTime.day == currentDateTime.day && storedList!= null && storedList.isNotEmpty) {
       print('matched');
       // Navigate to the home screen with the stored TV token
       // ignore: use_build_context_synchronously

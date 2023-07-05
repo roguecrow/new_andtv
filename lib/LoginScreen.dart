@@ -79,8 +79,9 @@ class _LoginScreenState extends State<LoginScreen>
     // Check if the tvToken is stored and not expired
     final storedTvToken = preferences.getString('tvToken');
     final storedTimestamp = preferences.getInt('tvTokenTimestamp');
-    preferences.setString('clinic_id', "");
-    preferences.setString('doctorName', "");
+    // preferences.setString('clinic_id', "");
+    // preferences.setString('doctorName', "");
+    preferences.setStringList('userList', []);
 
     if (storedTvToken != null && storedTimestamp != null) {
       var storedDateTime = DateTime.fromMillisecondsSinceEpoch(storedTimestamp);
@@ -138,16 +139,13 @@ class _LoginScreenState extends State<LoginScreen>
 
       if (jsonData['doctors'] != null && jsonData['doctors'].length != 0) {
         if (jsonData['doctors'] is List) {
-          var user = jsonData['doctors'][0];
+         List<dynamic> user = jsonData['doctors'];
           print(user);
-          print(user["clinic_id"]);
-          print(user["doctor_name"]);
           SharedPreferences preferences = await SharedPreferences.getInstance() ;
+          preferences.setStringList('userList', user.map((doctor) => jsonEncode(doctor)).toList());
+          print('List stored in shared preferences');
            // ignore: prefer_interpolation_to_compose_strings, non_constant_identifier_names
-          String clinic_id = ""+user["clinic_id"].toString();
-           preferences.setString('clinic_id', clinic_id);
-           preferences.setString('doctorName', user["doctor_name"]);
-        }
+          }
 
         // ignore: use_build_context_synchronously
         Navigator.push(
