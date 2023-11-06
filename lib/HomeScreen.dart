@@ -15,7 +15,6 @@ class HomeScreen extends StatefulWidget {
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
-
 class _HomeScreenState extends State<HomeScreen> {
   List<Patient> patientList = [];
   late Timer _timer;
@@ -25,50 +24,65 @@ class _HomeScreenState extends State<HomeScreen> {
   String? clinicId;
   String? tvToken;
   bool isRequestSent = false;
+  int index = 0;
 
   Future<void> checkConnectivity() async {
-    final connectivityResult = await (Connectivity().checkConnectivity());
+    final connectivityResult = await Connectivity().checkConnectivity();
     setState(() {
       if (connectivityResult == ConnectivityResult.none) {
         _isConnected = false;
       } else {
-        if(_isConnected==false)
-          {
-            isRequestSent=false;
-          }
+        if (_isConnected == false) {
+          isRequestSent = false;
+        }
         _isConnected = true;
       }
     });
   }
 
   @override
-  @override
   void initState() {
     fetchData();
     super.initState();
-      // Fetch data every 60 seconds
-      _timer = Timer.periodic(const Duration(seconds: 60), (timer) {
-        checkConnectivity();
-        if(!isRequestSent) {
-            fetchData();
-        }
-      });
-  }
+    // Fetch data every 60 seconds
 
-
-  @override
-  void dispose() {
-    _timer.cancel(); // Cancel the timer when the screen is disposed
-    super.dispose();
   }
 
   void fetchData() async {
     isRequestSent = true;
     SharedPreferences preferences = await SharedPreferences.getInstance();
     doctorName = preferences.getString('doctorName');
+    List<String>? doctorsList = preferences.getStringList('userList');
+
+    if (doctorsList != null && doctorsList.isNotEmpty) {
+      if (index == 0) {
+        var doctorData = jsonDecode(doctorsList[0]);
+        clinicId = doctorData['clinic_id'].toString();
+        doctorName = doctorData['doctor_name'];
+        fetchPatientList();
+      }
+
+      _timer = Timer.periodic(Duration(seconds: 30), (Timer timer) async {
+        checkConnectivity();
+        index++;
+        if (index >= doctorsList.length) {
+          index = 0; // Restart the loop
+        }
+        var doctorData = jsonDecode(doctorsList[index]);
+        clinicId = doctorData['clinic_id'].toString();
+        doctorName = doctorData['doctor_name'];
+        fetchPatientList();
+      });
+    }
+  }
+
+  Future<void> fetchPatientList() async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    tvToken = preferences.getString('tvToken');
     final url =
-        'https://api30.slashdr.com/tv/queue/?tv_token=${preferences.getString('tvToken')}&clinic_id=${preferences.getString('clinic_id')}';
+        'https://api30.slashdr.com/tv/queue/?tv_token=$tvToken&clinic_id=$clinicId';
     print(url);
+
     // Make an HTTP GET request to the API endpoint
     var response = await http.get(Uri.parse(url));
     isRequestSent = false;
@@ -78,14 +92,22 @@ class _HomeScreenState extends State<HomeScreen> {
       var jsonData = jsonDecode(response.body);
       var results = jsonData['list'];
 
-      setState(() {
-        // Update the patientList with the fetched data
-        patientList = List<Patient>.from(
-            results.map((data) => Patient.fromJson(data))).toList();
-        lastUpdatedTime = DateTime.now();
-        print(patientList);// Update the last updated time
-      });
+      if (mounted) {
+        setState(() {
+          // Update the patientList with the fetched data
+          patientList = List<Patient>.from(
+              results.map((data) => Patient.fromJson(data))).toList();
+          lastUpdatedTime = DateTime.now();
+          print(patientList); // Update the last updated time
+        });
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel(); // Cancel the timer when the screen is disposed
+    super.dispose();
   }
 
   @override
@@ -96,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
       minTextAdapt: true,
     );
     return WillPopScope(
-      onWillPop: () async{
+      onWillPop: () async {
         SystemNavigator.pop();
         return true;
       },
@@ -109,14 +131,15 @@ class _HomeScreenState extends State<HomeScreen> {
           title: Image.asset(
             'assets/uhi_white_2048.png',
             width: 100.h,
-            height:100.h,
+            height: 100.h,
           ),
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 25.0, top: 30.0),
               child: Text(
                 '$doctorName',
-                style: TextStyle(fontFamily: 'sf_pro',fontSize:ScreenUtil().setSp(40)),
+                style: TextStyle(
+                    fontFamily: 'sf_pro', fontSize: ScreenUtil().setSp(40)),
               ),
             ),
           ],
@@ -145,9 +168,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           'No Patients In Waiting!',
                           style: TextStyle(
                             fontFamily: 'sf_pro',
-                              color: Colors.white,
-                              letterSpacing: .5,
-                              fontSize: 40,
+                            color: Colors.white,
+                            letterSpacing: .5,
+                            fontSize: 40,
                           ),
                         ),
                       ],
@@ -162,14 +185,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           margin: EdgeInsets.symmetric(
                             horizontal: ScreenUtil().setWidth(4),
                             vertical: ScreenUtil().setWidth(3),
-
-
                           ),
                           padding: EdgeInsets.all(
                             ScreenUtil().setWidth(2),
                           ),
                           decoration: BoxDecoration(
-                            color: index == 0 ? Color(0x44ffffff) : Colors.transparent,
+                            color: index == 0
+                                ? Color(0x44ffffff)
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(
                               ScreenUtil().setWidth(10),
                             ),
@@ -212,13 +235,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const Text(
                           'No internet connection !',
-                          style:
-                             TextStyle(
-                               fontFamily: 'sf_pro',
-                              color: Colors.white,
-                              letterSpacing: .5,
-                              fontSize: 50,
-                            ),
+                          style: TextStyle(
+                            fontFamily: 'sf_pro',
+                            color: Colors.white,
+                            letterSpacing: .5,
+                            fontSize: 50,
+                          ),
                         ),
                       ],
                     ),
@@ -235,10 +257,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     _isConnected
                         ? 'Last Updated: ${DateFormat('hh:mm a, MMM dd, yyyy').format(lastUpdatedTime)}'
                         : '',
-                    style:  TextStyle(
-                        fontFamily: 'sf_pro',
-                        color: Colors.white,
-                        fontSize: ScreenUtil().setSp(15),
+                    style: TextStyle(
+                      fontFamily: 'sf_pro',
+                      color: Colors.white,
+                      fontSize: ScreenUtil().setSp(15),
                     ),
                   ),
                 ),
