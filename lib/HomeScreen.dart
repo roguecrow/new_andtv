@@ -15,8 +15,10 @@ class HomeScreen extends StatefulWidget {
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
+
 class _HomeScreenState extends State<HomeScreen> {
   List<Patient> patientList = [];
+  List<Patient> investigationList = [];
   late Timer _timer;
   DateTime lastUpdatedTime = DateTime.now();
   bool _isConnected = true;
@@ -45,7 +47,6 @@ class _HomeScreenState extends State<HomeScreen> {
     fetchData();
     super.initState();
     // Fetch data every 60 seconds
-
   }
 
   void fetchData() async {
@@ -62,15 +63,21 @@ class _HomeScreenState extends State<HomeScreen> {
         fetchPatientList();
       }
 
-      _timer = Timer.periodic(Duration(seconds: 30), (Timer timer) async {
+      _timer = Timer.periodic(const Duration(seconds: 30), (Timer timer) async {
         checkConnectivity();
-        index++;
-        if (index >= doctorsList.length) {
-          index = 0; // Restart the loop
-        }
-        var doctorData = jsonDecode(doctorsList[index]);
-        clinicId = doctorData['clinic_id'].toString();
-        doctorName = doctorData['doctor_name'];
+        setState(() {
+          index++;
+          if (index >= doctorsList.length) {
+            index = 0; // Restart the loop
+          }
+          var doctorData = jsonDecode(doctorsList[index]);
+          clinicId = doctorData['clinic_id'].toString();
+          doctorName = doctorData['doctor_name'];
+        });
+
+        // Wait for a short duration before fetching data
+        await Future.delayed(const Duration(milliseconds: 300));
+
         fetchPatientList();
       });
     }
@@ -90,15 +97,23 @@ class _HomeScreenState extends State<HomeScreen> {
       print(response.statusCode);
       // Parsing the response and extracting the data
       var jsonData = jsonDecode(response.body);
-      var results = jsonData['list'];
+      var patientResults = jsonData['list'];
+      var investigationResults = jsonData['investigation'];
 
       if (mounted) {
         setState(() {
           // Update the patientList with the fetched data
           patientList = List<Patient>.from(
-              results.map((data) => Patient.fromJson(data))).toList();
+              patientResults.map((data) => Patient.fromJson(data))).toList();
           lastUpdatedTime = DateTime.now();
           print(patientList); // Update the last updated time
+
+          // Process the investigation data
+          investigationList = List<Patient>.from(
+                  investigationResults.map((data) => Patient.fromJson(data)))
+              .toList();
+          // Do whatever you want with the investigationList
+          print(investigationList);
         });
       }
     }
@@ -122,150 +137,325 @@ class _HomeScreenState extends State<HomeScreen> {
         SystemNavigator.pop();
         return true;
       },
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF010038),
-          toolbarHeight: ScreenUtil().setHeight(100),
-          elevation: 10,
-          automaticallyImplyLeading: false,
-          title: Image.asset(
-            'assets/uhi_white_2048.png',
-            width: 100.h,
-            height: 100.h,
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 25.0, top: 30.0),
-              child: Text(
-                '$doctorName',
-                style: TextStyle(
-                    fontFamily: 'sf_pro', fontSize: ScreenUtil().setSp(40)),
-              ),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (child, animation) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          );
+        },
+        child: Scaffold(
+          key: ValueKey<int>(index),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF010038),
+            toolbarHeight: ScreenUtil().setHeight(100),
+            elevation: 10,
+            automaticallyImplyLeading: false,
+            title: Image.asset(
+              'assets/uhi_white_2048.png',
+              width: 100.h,
+              height: 100.h,
             ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF010038),
-        body: Padding(
-          padding: const EdgeInsets.only(top: 16.0),
-          child: Column(
-            children: [
-              if (_isConnected) // Show ListView.builder only if connected
-                Visibility(
-                  visible: patientList.isNotEmpty,
-                  replacement: Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Image.asset(
-                          'assets/emptystate_queue.png',
-                          width: 500.w,
-                          height: 500.h,
-                        ),
-                        SizedBox(
-                          height: 10.h,
-                        ),
-                        const Text(
-                          'No Patients In Waiting!',
-                          style: TextStyle(
-                            fontFamily: 'sf_pro',
-                            color: Colors.white,
-                            letterSpacing: .5,
-                            fontSize: 40,
-                          ),
-                        ),
-                      ],
-                    ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 25.0, top: 30.0),
+                child: Text(
+                  '$doctorName',
+                  style: TextStyle(
+                    fontFamily: 'sf_pro',
+                    fontSize: ScreenUtil().setSp(40),
                   ),
-                  child: Expanded(
-                    child: ListView.builder(
-                      itemCount: patientList.length,
-                      itemBuilder: (context, index) {
-                        final patient = patientList[index];
-                        return Container(
-                          margin: EdgeInsets.symmetric(
-                            horizontal: ScreenUtil().setWidth(4),
-                            vertical: ScreenUtil().setWidth(3),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF010038),
+          body: Padding(
+            padding: const EdgeInsets.only(top: 16.0),
+            child: Column(
+              children: [
+                if (_isConnected) // Show ListView.builder only if connected
+                  Visibility(
+                    visible: patientList.isNotEmpty,
+                    replacement: Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset(
+                            'assets/emptystate_queue.png',
+                            width: 500.w,
+                            height: 500.h,
                           ),
-                          padding: EdgeInsets.all(
-                            ScreenUtil().setWidth(2),
+                          SizedBox(
+                            height: 10.h,
                           ),
-                          decoration: BoxDecoration(
-                            color: index == 0
-                                ? Color(0x44ffffff)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(
-                              ScreenUtil().setWidth(10),
+                          const Text(
+                            'No Patients In Waiting!',
+                            style: TextStyle(
+                              fontFamily: 'sf_pro',
+                              color: Colors.white,
+                              letterSpacing: .5,
+                              fontSize: 40,
                             ),
                           ),
-                          child: ListTile(
-                            title: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                        ],
+                      ),
+                    ),
+                    child: Expanded(
+                      child: Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Text(
-                                  '${patient.name.trim()}, ${patient.age}',
+                                  'Waiting',
                                   style: TextStyle(
                                     fontFamily: 'sf_pro',
-                                    color: Colors.white,
+                                    color: const Color(0xFF018FFF),
                                     letterSpacing: 2,
-                                    fontSize: ScreenUtil().setSp(60),
+                                    fontSize: ScreenUtil().setSp(30),
                                     fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: ListView.builder(
+                                    itemCount: patientList.length > 5
+                                        ? 5
+                                        : patientList.length,
+                                    itemBuilder: (context, index) {
+                                      final patient = patientList[index];
+                                      return Container(
+                                        margin: EdgeInsets.symmetric(
+                                          horizontal: ScreenUtil().setWidth(4),
+                                          vertical: ScreenUtil().setWidth(3),
+                                        ),
+                                        padding: EdgeInsets.all(
+                                          ScreenUtil().setWidth(2),
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: index == 0 &&
+                                                  investigationList.isEmpty
+                                              ? const Color(0x44ffffff)
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            ScreenUtil().setWidth(10),
+                                          ),
+                                        ),
+                                        child: ListTile(
+                                          title: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                '${patient.name.trim().length > 5 ? "${patient.name.trim().substring(0, 5)}..." : "${patient.name.trim()}..."}, ${patient.age}',
+                                                style: TextStyle(
+                                                  fontFamily: 'sf_pro',
+                                                  color: Colors.white,
+                                                  letterSpacing: 2,
+                                                  fontSize:
+                                                      ScreenUtil().setSp(60),
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              if (!_isConnected) // Show "No Internet Connection" message when not connected
-                Expanded(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Image.asset(
-                          'assets/NoNet_Connect_queue.png',
-                          width: 500.w,
-                          height: 500.h,
-                        ),
-                        SizedBox(
-                          height: 5.h,
-                        ),
-                        const Text(
-                          'No internet connection !',
-                          style: TextStyle(
-                            fontFamily: 'sf_pro',
+                          Container(
+                            width: 1.0,
+                            height: double.infinity,
                             color: Colors.white,
-                            letterSpacing: .5,
-                            fontSize: 50,
+                            child: const VerticalDivider(),
                           ),
-                        ),
-                      ],
+                          if (investigationList.isNotEmpty)
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Investigation Done',
+                                    style: TextStyle(
+                                      fontFamily: 'sf_pro',
+                                      color: const Color(0xFF018FFF),
+                                      letterSpacing: 2,
+                                      fontSize: ScreenUtil().setSp(30),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: ListView.builder(
+                                      itemCount: investigationList.length > 5
+                                          ? 5
+                                          : investigationList.length,
+                                      itemBuilder: (context, index) {
+                                        final patient =
+                                            investigationList[index];
+                                        return Container(
+                                          margin: EdgeInsets.symmetric(
+                                            horizontal:
+                                                ScreenUtil().setWidth(4),
+                                            vertical: ScreenUtil().setWidth(3),
+                                          ),
+                                          padding: EdgeInsets.all(
+                                            ScreenUtil().setWidth(2),
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: index == 0
+                                                ? const Color(0x44ffffff)
+                                                : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(
+                                              ScreenUtil().setWidth(10),
+                                            ),
+                                          ),
+                                          child: ListTile(
+                                            title: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '${patient.name.trim().length > 5 ? "${patient.name.trim().substring(0, 5)}..." : "${patient.name.trim()}..."}, ${patient.age}',
+                                                  style: TextStyle(
+                                                    fontFamily: 'sf_pro',
+                                                    color: Colors.white,
+                                                    letterSpacing: 2,
+                                                    fontSize:
+                                                        ScreenUtil().setSp(60),
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (investigationList.isEmpty)
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    ' ' ,
+                                    style: TextStyle(
+                                      fontFamily: 'sf_pro',
+                                      color: const Color(0xFF018FFF),
+                                      letterSpacing: 2,
+                                      fontSize: ScreenUtil().setSp(30),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: ListView.builder(
+                                      itemCount: patientList.length > 5 ? (patientList.length - 5) : 0,
+
+                                      itemBuilder: (context, index) {
+                                        final patient = patientList[index + 5];
+                                        return Container(
+                                          margin: EdgeInsets.symmetric(
+                                            horizontal: ScreenUtil().setWidth(4),
+                                            vertical: ScreenUtil().setWidth(3),
+                                          ),
+                                          padding: EdgeInsets.all(
+                                            ScreenUtil().setWidth(2),
+                                          ),
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(
+                                              ScreenUtil().setWidth(10),
+                                            ),
+                                          ),
+                                          child: ListTile(
+                                            title: Column(
+                                              crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '${patient.name.trim().length > 5 ? "${patient.name.trim().substring(0, 5)}..." : "${patient.name.trim()}..."}, ${patient.age}',
+                                                  style: TextStyle(
+                                                    fontFamily: 'sf_pro',
+                                                    color: Colors.white,
+                                                    letterSpacing: 2,
+                                                    fontSize: ScreenUtil().setSp(60),
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                        ],
+                      ),
+                    ),
+                  ),
+                if (!_isConnected) // Show "No Internet Connection" message when not connected
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset(
+                            'assets/NoNet_Connect_queue.png',
+                            width: 500.w,
+                            height: 500.h,
+                          ),
+                          SizedBox(
+                            height: 5.h,
+                          ),
+                          const Text(
+                            'No internet connection!',
+                            style: TextStyle(
+                              fontFamily: 'sf_pro',
+                              color: Colors.white,
+                              letterSpacing: .5,
+                              fontSize: 50,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: ScreenUtil().setWidth(5),
+                      bottom: ScreenUtil().setWidth(5),
+                    ),
+                    child: Text(
+                      _isConnected
+                          ? 'Last Updated: ${DateFormat('hh:mm a, MMM dd, yyyy').format(lastUpdatedTime)}'
+                          : '',
+                      style: TextStyle(
+                        fontFamily: 'sf_pro',
+                        color: Colors.white,
+                        fontSize: ScreenUtil().setSp(15),
+                      ),
                     ),
                   ),
                 ),
-              Align(
-                alignment: Alignment.bottomRight,
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    right: ScreenUtil().setWidth(5),
-                    bottom: ScreenUtil().setWidth(5),
-                  ),
-                  child: Text(
-                    _isConnected
-                        ? 'Last Updated: ${DateFormat('hh:mm a, MMM dd, yyyy').format(lastUpdatedTime)}'
-                        : '',
-                    style: TextStyle(
-                      fontFamily: 'sf_pro',
-                      color: Colors.white,
-                      fontSize: ScreenUtil().setSp(15),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
